@@ -96,7 +96,24 @@ order by f.faixa_id;
 12.Crie uma consulta que mostre quais os compositores que, pertencendo ao TOP 10 da “produtividade” (ou seja, que compuseram mais faixas musicais), compuseram
 músicas que figuram nos álbuns que estão no TOP 50 da duração (ou seja, os 50 álbuns mais longos).
 
-select
+select distinct c.nome
+from compositor c inner join fx_comp fc on c.compositor_id = fc.compositor
+	inner join faixas f on fc.faixa_id = f.faixa_id
+	inner join (
+		select compositor
+		from fx_comp
+		group by compositor
+		order by count(faixa_id) desc
+		limit 10
+	) as top_10 on c.compositor_id = top_10.compositor
+    inner join (
+        select album, sum(duracao) as duracao_total
+        from faixas
+        GROUP by album
+        order by duracao_total DESC
+        limit 50
+    ) as top_50 on f.album = top_50.album;
+    
 
 13.Quais os álbuns em que pelo menos metade das faixas tem duração superior à duração média de todas as faixas.
 
