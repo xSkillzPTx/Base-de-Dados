@@ -117,7 +117,15 @@ from compositor c inner join fx_comp fc on c.compositor_id = fc.compositor
 
 13.Quais os álbuns em que pelo menos metade das faixas tem duração superior à duração média de todas as faixas.
 
-select
+select a.titulo,
+	(select count(*) 
+     from faixas f2 
+     where f2.album = a.album_id
+     and f2.duracao > (select avg(duracao) from faixas where duracao is not null)) as faixas_acima_media
+from album a inner join faixas f on a.album_id = f.album
+group by a.album_id, a.titulo
+having faixas_acima_media >= count(f.faixa_id) / 2  
+ORDER BY `a`.`titulo` ASC
 
 14.Quais os artistas que editaram álbuns que têm pelo menos três géneros musicais representados?
 
