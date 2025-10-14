@@ -129,11 +129,22 @@ ORDER BY `a`.`titulo` ASC
 
 14.Quais os artistas que editaram álbuns que têm pelo menos três géneros musicais representados?
 
-select
+select DISTINCT art.nome
+from artista art inner join album a on art.artista_id = a.artista
+				 inner join faixas f on a.album_id = f.album
+group by art.artista_id, art.nome, a.album_id
+having count(DISTINCT f.genero) >= 3
+order by art.nome;
 
 15.Quais foram os artistas que editaram álbuns, cujas faixas não estão creditadas no mesmo ano.
 
-select
+SELECT DISTINCT art.name as 'Artista/Banda'
+FROM artista art
+INNER JOIN album a ON art.artista_id = a.artista
+INNER JOIN faixas f ON a.album_id = f.album
+WHERE f.ano != a.ano_album
+   OR f.ano IS NULL
+ORDER BY art.name;
 
 16.Crie uma consulta que permita conhecer quais os álbuns (se existirem) que são constituídos por faixas em que todos os compositores sejam diferentes.
 Nota:aconselha-se a utilização da função GROUP_CONCAT.
