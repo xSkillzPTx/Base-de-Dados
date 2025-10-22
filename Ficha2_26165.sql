@@ -113,7 +113,6 @@ from compositor c inner join fx_comp fc on c.compositor_id = fc.compositor
         order by duracao_total DESC
         limit 50
     ) as top_50 on f.album = top_50.album;
-    
 
 13.Quais os álbuns em que pelo menos metade das faixas tem duração superior à duração média de todas as faixas.
 
@@ -136,6 +135,7 @@ group by art.artista_id, art.nome, a.album_id
 having count(DISTINCT f.genero) >= 3
 order by art.nome;
 
+
 15.Quais foram os artistas que editaram álbuns, cujas faixas não estão creditadas no mesmo ano.
 
 SELECT DISTINCT art.name as 'Artista/Banda'
@@ -149,27 +149,138 @@ ORDER BY art.name;
 16.Crie uma consulta que permita conhecer quais os álbuns (se existirem) que são constituídos por faixas em que todos os compositores sejam diferentes.
 Nota:aconselha-se a utilização da função GROUP_CONCAT.
 
-select
+select a.titulo, GROUP_CONCAT(distinct c.nome order by c.nome) as compositores
+from album a inner join faixas f on a.album_id = f.album
+	inner join fx_comp fc on f.faixa_id = fc.faixa_id
+	inner join compositor c on fc.compositor = c.compositor_id
+	where c.compositor_id not in (
+		select fc2.compositor
+		from fx_comp fc2 inner join faixas f2 on fc2.faixa_id = f2.faixa_id
+		group by fc2.compositor
+		having count(distinct f2.album) > 1
+	)
+group by a.album_id, a.titulo
+having count (distinct fc.compositor) = count (f.faixa_id);
+
 
 17.Qual o compositor que compôs faixas para um maior número de álbuns.
 
-select
+select c.nome, count(distinct f.album) as Numero_Albuns
+from compositor c inner join fx_comp fc on c.compositor_id = fc.compositor
+	inner join faixas f on f.faixa_id = fc.faixa_id
+group by c.compositor_id, c.nome
+order by Numero_Albuns
+limit 1;
 
 18.Qual o compositor que compôs faixas para um maior número de artistas que editaram álbuns.
 
-select
+select c.nome, count(distinct a.artista) as Numero_Artistas
+from compositor c inner join fx_comp fc on c.compositor_id = fc.compositor
+	inner join faixas f on f.faixa_id = fc.faixa_id
+	inner join album a on f.album = a.album_id
+group by c.compositor_id, c.nome
+order by Numero_Artistas desc
+limit 1;
 
 19.Quais os artistas que editaram pelo menos 10 álbuns num período de atividade do artista de pelo menos 15 anos.
 
-select
+select ar.nome, count(a.album_id) as Numero_Albuns, (max(a.ano_album) - min(a.ano_album)) as Anos
+from artista ar inner join album a on ar.artista_id = a.artista
+group by ar.artista_id, ar.nome
+having count(a.album_id)>= 10 and (max(a.ano_album) - min(a.ano_album)) >= 15;
 
 20.Dos álbuns que contêm faixas compostas simultaneamente por John Lennon (compositor_id=140) e Paul McCartney (compositor_id=139) quais são os que foram
 editados pelos "The Beatles" depois de 1967 e que contenham pelo menos 2 faixas compostas por George Harrison (compositor_id=141).
 
-select
+select a.titulo, a.ano_album
+from album a inner join artista art on a.artista = art.artista_id
+where art.nome = "The beatles" and a.ano_album > 1967 and a.album_id IN (
+    select f.album
+    from faixas f inner join fx_comp fc1 on fc1.faixa_id = f.faixa_id
+    inner join fx_comp fc2 on fc2.faixa_id = f.faixa_id
+    where fc1.compositor = 139 and fc2.compositor = 140
+    group by f.album
+    )
+    and a.album_id IN (
+        select f.album
+        from faixas f inner join fx_comp fc3 on fc3.faixa_id = f.faixa_id
+        where fc3.compositor = 141
+        group by f.album
+        having count(DISTINCT f.faixa_id) >= 2
+)
 
 21.Quais os artistas que têm pelo menos 2 álbuns editados, em que na totalidade das faixas não tenha sido creditado como compositor o próprio artista. 
 (Nota: considere apenas igualdade nos nomes. Compositor "Lennon"<>Artista "John Lennon")
 
-select
+select art.nome, count(DISTINCT a.album_id) as total_albuns
+from artista art inner join album a on a.artista = art.artista_id
+where a.album_id NOT IN (
+    select f.album
+    from faixas f inner join fx_comp fc on fc.faixa_id = f.faixa_id
+    	inner join compositor c on c.compositor_id = fc.compositor
+    	inner join album alb on alb.album_id = f.album
+    	inner join artista ar on alb.artista = ar.artista_id
+    where c.nome = ar.nome
+)
+group by art.nome
+having total_albuns >= 2;
 
+22.Para todos os artistas que editaram álbuns, preencha a seguinte tabela:
+| Artista |  Década de 60  |  Década de 70  |  Década de 80  |     Outras     |
+|  ...    |  nº de álbuns  |  nº de álbuns  |  nº de álbuns  |  nº de álbuns  |
+|  ...    |  nº de álbuns  |  nº de álbuns  |  nº de álbuns  |  nº de álbuns  |
+|  ...    |       ...      |       ...      |       ...      |       ...      |
+
+select art.nome as Artista,
+	SUM(CASE WHEN a.ano_album BETWEEN 1960 and 1969 then 1 else 0 end) as "Década de 60",
+    SUM(CASE WHEN a.ano_album BETWEEN 1970 and 1979 then 1 else 0 end) as "Década de 70",
+    SUM(CASE WHEN a.ano_album BETWEEN 1980 and 1989 then 1 else 0 end) as "Década de 80",
+    SUM(CASE WHEN a.ano_album NOT BETWEEN 1960 and 1989 then 1 else 0 end) as "Outras"
+from album a inner join artista art on a.artista = art.artista_id
+group by art.nome;
+
+
+23.Para todos os géneros musicais, preencha a seguinte tabela:
+| Género  |  Tamanho < 6039074  |  Tamanho >= 6039074  |
+|  ...    |    nº de álbuns     |     nº de álbuns     |
+|  ...    |    nº de álbuns     |     nº de álbuns     |
+|  ...    |         ...         |         ...          |
+
+
+select g.name as Genero,
+	sum(case when f.ficheiro_tamanho < 6039074 then 1 else 0 end) as "Tamanho < 6039074",
+    sum(case when f.ficheiro_tamanho >= 6039074 then 1 else 0 end) as "Tamanho >= 6039074"
+from faixas f inner join genero g on f.genero = g.id
+group by g.name;
+
+24.Para todos os artistas, preencha a seguinte tabela:
+|         | Álbuns com menos de 5 | Álbuns com mais de 5  |
+| Artista | faixas do género Rock | faixas do género Rock |
+|  ...    |     nº de álbuns      |     nº de álbuns      |
+|  ...    |     nº de álbuns      |     nº de álbuns      |
+
+select art.nome as Artista,
+	SUM(CASE WHEN (
+    	select count(*)
+        from faixas f inner join genero g on f.genero = g.id
+        where f.album = a.album_id and g.name = "Rock"
+    ) < 5 then 1 else 0 end) as "Álbuns com menos de 5 faixas do género Rock",
+    SUM(CASE WHEN (
+    	select count(*)
+        from faixas f inner join genero g on f.genero = g.id
+        where f.album = a.album_id and g.name = "Rock"
+    ) > 5 then 1 else 0 end) as "Álbuns com mais de 5 faixas do género Rock"
+	from album a inner join artista art on a.artista = art.artista_id
+group by art.nome;
+
+25.Preencha a seguinte tabela:.
+| Género | Século XX | Século XXI |
+| ...    |     *     |      *     | 
+| ...    |     *     |      *     |
+em que * é o número de faixas com duração superior a 240 segundos.
+
+select g.name as Genero,
+	sum(case when f.ano <=2000 and f.duracao > 240 then 1 else 0 end) as "Século XX",
+    sum(case when f.ano > 2000 and f.duracao > 240 then 1 else 0 end) as "Século XXI"
+from faixas f inner join genero g on f.genero = g.id
+group by g.name;
